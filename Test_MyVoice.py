@@ -2,19 +2,19 @@ import pyaudio
 import os
 import wave
 import pickle
+import audiofile
 from sys import byteorder
 from array import array
 from struct import pack
-from sklearn.neural_network import MLPClassifier
-
 from utils import extract_feature
 
 THRESHOLD = 500
 CHUNK_SIZE = 1024
 FORMAT = pyaudio.paInt16
 RATE = 16000
-
 SILENCE = 30
+ISRECORDED = 1
+
 
 def is_silent(snd_data):
     "Returns 'True' if below the 'silent' threshold"
@@ -121,14 +121,39 @@ def record_to_file(path):
     wf.close()
 
 
+# Functions when there is already an audio file
+def recorded_file(sample_rate, data, filename):
+
+    data = normalize(data)
+    data = trim(data)
+    data = add_silence(data, 0.5)
+    data = pack('<' + ('h' * len(data)), *data)
+
+    wf = wave.open(filename, 'wb')
+    wf.setnchannels(1)
+    wf.setsampwidth(2)   #it needs to be changed
+    wf.setframerate(sample_rate)
+    wf.writeframes(data)
+    wf.close()
+
+
 
 if __name__ == "__main__":
     # load the saved model (after training)
     model = pickle.load(open("result/classifier_table.model", "rb"))
-    print("Please talk")
-    filename = "test.wav"
-    # record the file (start talking)
-    record_to_file(filename)
+
+    if ISRECORDED:
+         print("Please talk")
+         filename = "test.wav"
+         record_to_file(filename) # record the file (start talking)
+    else:
+        filename='test1.wav'
+        filenameq="test1.wav"
+        #These functions are going to standarize the final audio / working on this
+        data, samplerate = audiofile.read(filename)
+        recorded_file(samplerate, data, filenameq) # already recorded a file
+
+
     # extract features and reshape it
     features = extract_feature(filename, mfcc=True, chroma=True, rmel=True, rms=True, zcr=True).reshape(1, -1)
     # predict
